@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+    <!-- Top menu item -->
+    <menuitem name="React" id="react.menu_root" web_icon="react,static/description/icon.png"/>
+    <!-- menu categories -->
+    <menuitem name="Settings" id="react.menu_settings" parent="react.menu_root" action="action_react_settings"/>
+  </data>
+</odoo>
