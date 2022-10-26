@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+    <!-- Top menu item -->
+    <menuitem name="Api Route" id="api_route.menu_root" web_icon="api_route,static/description/icon.png"/>
+    <!-- menu categories -->
+    <menuitem name="Settings" id="api_route.menu_settings" parent="api_route.menu_root" action="action_api_route_settings"/>
+  </data>
+</odoo>

@@ -14,11 +14,11 @@ class ReactConfig(models.TransientModel):
         res = super().get_values()
         get_param = self.env["ir.config_parameter"].sudo().get_param
         res.update(
-            website=get_param("react.website"),
+            website=get_param("api_route.website"),
         )
         return res
 
     def set_values(self):
         super().set_values()
         set_param = self.env["ir.config_parameter"].sudo().set_param
-        set_param("react.website", self.website)
+        set_param("api_route.website", self.website)

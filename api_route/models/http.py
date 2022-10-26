@@ -1,6 +1,7 @@
 import logging
 
 from odoo import http
+from odoo.exceptions import AccessError
 from odoo.http import CSRF_FREE_METHODS, Dispatcher, SessionExpiredException
 from werkzeug.exceptions import (
     BadRequest,
@@ -86,20 +87,22 @@ class ApiDispatcher(Dispatcher):
 
     def handle_error(self, exc):
         if isinstance(exc, BadRequest):
-            return ApiBadRequest(exc.args[0]).get_response()
+            return ApiBadRequest(exc.description).get_response()
         elif isinstance(exc, SessionExpiredException):
             session = self.request.session
             session.logout(keep_db=True)
             return ApiUnauthorized("Session Expired").get_response()
+        elif isinstance(exc, AccessError):
+            return InternalServerError(exc.args[0])
         elif isinstance(exc, Unauthorized):
-            return ApiUnauthorized("Login/Password invalid").get_response()
+            return ApiUnauthorized(exc.description).get_response()
         elif isinstance(exc, Forbidden):
-            return ApiForbidden(exc.args[0]).get_response()
+            return ApiForbidden(exc.description).get_response()
         elif isinstance(exc, MethodNotAllowed):
-            return ApiMethodNotAllowed(exc.args[0]).get_response()
+            return ApiMethodNotAllowed(exc.description).get_response()
         elif isinstance(exc, UnprocessableEntity):
-            return ApiUnprocessableEntity(exc.args[0]).get_response()
+            return ApiUnprocessableEntity(exc.description).get_response()
         elif isinstance(exc, InternalServerError):
             return ApiInternalServerError().get_response()
         else:
-            return ApiInternalServerError("Unknown Error").get_response()
+            return ApiInternalServerError(str(exc)).get_response()

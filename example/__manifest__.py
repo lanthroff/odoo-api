@@ -15,7 +15,7 @@
     "category": "Uncategorized",
     "version": "0.1",
     # any module necessary for this one to work correctly
-    "depends": ["base", "react"],
+    "depends": ["base", "api_route"],
     # always loaded
     "data": [
         "security/ir.model.access.csv",

@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+import werkzeug
 from odoo import http
+from odoo.exceptions import AccessDenied, AccessError, UserError
 
 
 class Example(http.Controller):
