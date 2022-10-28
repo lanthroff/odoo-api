@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
 import werkzeug
 from odoo import http
-from odoo.exceptions import AccessDenied, AccessError, UserError
+from pydantic import BaseModel
+
+
+class MyObject(BaseModel):
+    name: str
+    age: int
 
 
 class Example(http.Controller):
@@ -19,6 +24,15 @@ class Example(http.Controller):
         }
 
     @http.route("/api", type="api", auth="public", methods=["GET", "POST"])
-    def api(self, **kw):
-        print("-------------------------", kw)
+    def api(self, data: MyObject) -> str:
+        """TEST DOCSTRING"""
+        print("---------DATAOBJECT----------------", data)
+        # print("---------KW----------------", kw)
+
         return {"id": http.request.session.uid}
+
+    @http.route("/test", type="http", auth="public", methods=["GET", "POST"])
+    def test(self, **kw):
+        rv = http.request.env["api_route.open_api"].get_json()
+
+        return str(rv)

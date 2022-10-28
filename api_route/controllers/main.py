@@ -10,7 +10,7 @@ from odoo.addons.web.controllers.utils import ensure_db
 from werkzeug.exceptions import Unauthorized
 
 
-class ReactController(http.Controller):
+class ApiRouteController(http.Controller):
     @http.route("/ping", type="api", auth="none", methods=["GET"])
     def ping(self, **kw):
         return {
