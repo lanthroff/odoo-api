@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
-import werkzeug
 from odoo import http
 from pydantic import BaseModel
 
 
-class MyObject(BaseModel):
+class ApiModel(BaseModel):
+    def __str__(self):
+        return f"{self.__class__.__name__}({', '.join([ f'{key}={self.__dict__.get(key)}' for key in self.__dict__])})"
+
+
+class MyObject(ApiModel):
     name: str
     age: int
 
@@ -24,15 +28,13 @@ class Example(http.Controller):
         }
 
     @http.route("/api", type="api", auth="public", methods=["GET", "POST"])
-    def api(self, data: MyObject) -> str:
+    def api(self, data: MyObject, **kw) -> str:
         """TEST DOCSTRING"""
-        print("---------DATAOBJECT----------------", data)
-        # print("---------KW----------------", kw)
+        print(data)
+        print("---------KW----------------", kw)
 
         return {"id": http.request.session.uid}
 
-    @http.route("/test", type="http", auth="public", methods=["GET", "POST"])
-    def test(self, **kw):
-        rv = http.request.env["api_route.open_api"].get_json()
-
-        return str(rv)
+    @http.route("/docs", type="http", auth="public", methods=["GET", "POST"])
+    def docs(self, **kw):
+        return http.request.env["api_route.open_api"].get_json()

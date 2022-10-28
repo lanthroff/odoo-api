@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+
+# Copyright © Educacode.
+
 from email.policy import HTTP
 
 from werkzeug.exceptions import (

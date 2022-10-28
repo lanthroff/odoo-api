@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+
+# Copyright © Educacode.
+
 import logging
 
 from odoo import http
@@ -71,12 +75,6 @@ class ApiDispatcher(Dispatcher):
         # Check csrf validity if needed
         if token and not self.request.validate_csrf(token):
             return ApiBadRequest().get_response()
-
-        # TODO choose if we keep the flexibility to receive args in url
-        # union_params = self.request.get_http_params()
-        # for p in self.jsonrequest:
-        #     union_params[p] = self.jsonrequest.get(p)
-        # self.request.params = dict(union_params, **args)
 
         self.request.params = dict(self.jsonrequest, **args)
 
