@@ -30,16 +30,6 @@ _logger = logging.getLogger(__name__)
 
 
 class ApiDispatcher(Dispatcher):
-    """
-    Error Codes:
-        - 400 BadRequest: Invalid CSRF token
-        - 401 Unauthorized: User not logged in
-        - 403 Forbidden: Missing CSRF token
-        - 405 Method Not Allowed
-        - 422 UnprocessableEntity: Json invalid
-        - 500 Internal server error
-    """
-
     routing_type = "api"
 
     def __init__(self, request):
@@ -79,12 +69,14 @@ class ApiDispatcher(Dispatcher):
             self.request.update_env(context=ctx)
 
         if self.request.db:
-            # result = self.request.registry["ir.http"]._dispatch(endpoint)
             result = self._dispatch(endpoint)
         else:
             result = endpoint(**self.request.params)
 
-        # TODO MARSHAL THE RESPONSE OBJECT -> JSON
+        # TODO find a better way to separate dict and basemodel
+        if not isinstance(result, dict):
+            result = result.dict()
+
         return self.request.make_json_response(result)
 
     def handle_error(self, exc):

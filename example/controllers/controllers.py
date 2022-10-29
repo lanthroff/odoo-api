@@ -1,20 +1,10 @@
 # -*- coding: utf-8 -*-
+
+# Copyright © Educacode.
+
 from odoo import http
-from pydantic import BaseModel
 
-
-class ApiModel(BaseModel):
-    def __str__(self):
-        return f"{self.__class__.__name__}({', '.join([ f'{key}={self.__dict__.get(key)}' for key in self.__dict__])})"
-
-
-class MyObject(ApiModel):
-    name: str
-    age: int
-
-
-class MyObjectResponse(ApiModel):
-    id: int
+from ..schemas.myobject import MyObject, MyObjectResponse
 
 
 class Example(http.Controller):
@@ -34,7 +24,5 @@ class Example(http.Controller):
     @http.route("/api", type="api", auth="public", methods=["GET", "POST"])
     def api(self, data: MyObject = None, **kw) -> MyObjectResponse:
         """TEST DOCSTRING"""
-        print(data)
-        print("---------KW----------------", kw)
-
-        return {"id": http.request.session.uid}
+        print(data.pretty(h="H", v="V"))
+        return MyObjectResponse(id=http.request.session.uid)

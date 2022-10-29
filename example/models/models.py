@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+# Copyright © Educacode.
+
 from odoo import api, fields, models
 
 
