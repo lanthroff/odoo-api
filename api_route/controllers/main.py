@@ -36,3 +36,21 @@ class ApiRouteController(http.Controller):
 
         except Exception as e:
             raise Unauthorized()
+
+    @http.route("/documentation", type="http", auth="user", methods=["GET"])
+    def documentation(self):
+        if not http.request.env.user.has_group(
+            "api_route.group_api_route_documentation"
+        ):
+            return Unauthorized("You don't have permission to see the documentation")
+
+        return http.request.render("api_route.swagger")
+
+    @http.route("/docs", type="http", auth="user", methods=["GET"])
+    def docs(self, **kw):
+        if not http.request.env.user.has_group(
+            "api_route.group_api_route_documentation"
+        ):
+            return Unauthorized("You don't have permission to see the documentation")
+
+        return http.request.env["api_route.open_api"].get_json()

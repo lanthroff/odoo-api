@@ -38,7 +38,3 @@ class Example(http.Controller):
         print("---------KW----------------", kw)
 
         return {"id": http.request.session.uid}
-
-    @http.route("/docs", type="http", auth="public", methods=["GET", "POST"])
-    def docs(self, **kw):
-        return http.request.env["api_route.open_api"].get_json()

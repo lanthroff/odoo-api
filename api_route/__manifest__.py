@@ -18,6 +18,8 @@
         "security/ir.model.access.csv",
         "views/config.xml",
         "views/menu.xml",
+        "views/swagger.xml",
+        "data/group.xml",
     ],
     "demo": [
         "demo/demo.xml",
