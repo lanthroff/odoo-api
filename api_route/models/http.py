@@ -45,36 +45,32 @@ class ApiDispatcher(Dispatcher):
     def __init__(self, request):
         super().__init__(request)
         self.jsonrequest = {}
-        self.argument = None
+        self.body = None
 
     @classmethod
     def is_compatible_with(cls, request):
-        return request.httprequest.mimetype == "application/json"
+        return True
 
     def dispatch(self, endpoint, args):
-        # Check json validity if not GET type
-        self.jsonrequest = {}
+        if self.request.httprequest.method not in CSRF_FREE_METHODS:
 
-        if self.request.httprequest.method != "GET":
+            # Check CSRF token presence
+            token = self.request.httprequest.headers.get("Csrf-Token")
+            if endpoint.routing.get("csrf", True) and not token:
+                return ApiForbidden("Missing CSRF token").get_response()
+
+            # Check CSRF is valid
+            if token and not self.request.validate_csrf(token):
+                return ApiBadRequest().get_response()
+
+            # Check JSON is valid
             try:
                 self.jsonrequest = self.request.get_json_data()
             except ValueError as exc:
                 return ApiUnprocessableEntity("Invalid Json").get_response()
 
-            self.argument = self.unmarshal(endpoint)
-
-        # Check Csrf token presence if needed
-        token = self.jsonrequest.pop("csrf_token", None)
-        if (
-            self.request.httprequest.method not in CSRF_FREE_METHODS
-            and endpoint.routing.get("csrf", True)
-            and not token
-        ):
-            return ApiForbidden("Missing CSRF token").get_response()
-
-        # Check csrf validity if needed
-        if token and not self.request.validate_csrf(token):
-            return ApiBadRequest().get_response()
+            # Unmarshal provided JSON into the designated Object(BaseModel)
+            self.body = self.unmarshal(endpoint)
 
         self.request.params = dict(self.jsonrequest, **args)
 
@@ -87,6 +83,8 @@ class ApiDispatcher(Dispatcher):
             result = self._dispatch(endpoint)
         else:
             result = endpoint(**self.request.params)
+
+        # TODO MARSHAL THE RESPONSE OBJECT -> JSON
         return self.request.make_json_response(result)
 
     def handle_error(self, exc):
@@ -134,8 +132,8 @@ class ApiDispatcher(Dispatcher):
             raise ApiUnprocessableEntity(str(e))
 
     def _dispatch(self, endpoint):
-        if self.argument:
-            result = endpoint(self.argument)
+        if self.body:
+            result = endpoint(self.body)
         else:
             result = endpoint(**http.request.params)
         if isinstance(result, Response):

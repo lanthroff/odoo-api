@@ -13,6 +13,10 @@ class MyObject(ApiModel):
     age: int
 
 
+class MyObjectResponse(ApiModel):
+    id: int
+
+
 class Example(http.Controller):
     @http.route("/profile", type="api", auth="user", methods=["GET", "POST"])
     def profile(self, **kw):
@@ -28,7 +32,7 @@ class Example(http.Controller):
         }
 
     @http.route("/api", type="api", auth="public", methods=["GET", "POST"])
-    def api(self, data: MyObject, **kw) -> str:
+    def api(self, data: MyObject = None, **kw) -> MyObjectResponse:
         """TEST DOCSTRING"""
         print(data)
         print("---------KW----------------", kw)

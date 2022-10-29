@@ -4,10 +4,10 @@
 
 import json
 import typing
-import urllib.parse as urlparse
 
 import odoo
 from odoo import api, http, models
+from pydantic.schema import schema
 
 
 class OpenApi(models.Model):
@@ -19,36 +19,6 @@ class OpenApi(models.Model):
     @api.model
     def get_json(self: models.Model) -> typing.List[typing.Dict[str, str]]:
         router = http.root.get_db_router(http.request.db)
-        rv = []
-        for rule in router.iter_rules():
-            if rule.endpoint.routing["type"] == "api":
-                for key in rule.endpoint.func.__annotations__:
-                    if hasattr(rule.endpoint.func.__annotations__[key], "__fields__"):
-                        for k in rule.endpoint.func.__annotations__[key].__fields__:
-                            field = rule.endpoint.func.__annotations__[key].__fields__[
-                                k
-                            ]
-                            print(
-                                {
-                                    "name": field.name,
-                                    "type": field.type_,
-                                    "required": field.required,
-                                }
-                            )
-                rv.append(
-                    {
-                        "details": rule.endpoint.routing,
-                        "documentation": rule.endpoint.__doc__,
-                        "annotations": {
-                            key: rule.endpoint.func.__annotations__[key].__fields__
-                            if hasattr(
-                                rule.endpoint.func.__annotations__[key], "__fields__"
-                            )
-                            else rule.endpoint.func.__annotations__[key].__name__
-                            for key in rule.endpoint.func.__annotations__
-                        },
-                    }
-                )
 
         Params = self.env["ir.config_parameter"].sudo()
 
@@ -61,7 +31,109 @@ class OpenApi(models.Model):
 
         service_name = Params.get_param("api_route.service")
 
-        return json.dumps(
+        rv = {
+            "openapi": "3.0.3",
+            "info": {
+                "title": service_name,
+                "description": "This is the documentation for your Odoo api_route",
+                "termsOfService": "http://swagger.io/terms/",
+                "contact": {"email": "clement.marlier@ie-mob.com"},
+                "license": {
+                    "name": "LGPL-3",
+                    "url": "https://www.gnu.org/licenses/lgpl-3.0.html",
+                },
+                "version": "1.0.0",
+            },
+            "externalDocs": {
+                "description": "Find out more about Swagger",
+                "url": "http://swagger.io",
+            },
+            "servers": [{"url": current_host}],
+            "paths": {},
+            "components": {
+                "schemas": {},
+            },
+        }
+
+        router = http.root.get_db_router(http.request.db)
+        csrf_token = http.request.csrf_token()
+
+        for rule in router.iter_rules():
+            if rule.endpoint.routing["type"] == "api":
+
+                request_body = None
+                request_response = None
+
+                # Iterate over all the annotations in the route definition
+                for key in rule.endpoint.func.__annotations__:
+                    # If the annotation is of type object then we get the details
+                    if hasattr(rule.endpoint.func.__annotations__[key], "__fields__"):
+
+                        # Convert the schema to openapi dict
+                        current_schema = schema(
+                            [rule.endpoint.func.__annotations__[key]],
+                            ref_prefix="#components/schema/",
+                        )
+                        for obj in current_schema["definitions"]:
+                            rv["components"]["schemas"][obj] = current_schema[
+                                "definitions"
+                            ][obj]
+                            if key == "return":
+                                request_response = f"#/components/schemas/{obj}"
+                            else:
+                                request_body = f"#/components/schemas/{obj}"
+
+                for path in rule.endpoint.routing.get("routes"):
+                    for method in rule.endpoint.routing.get("methods"):
+                        norm_method = method.lower()
+                        if request_response and (request_body or norm_method == "get"):
+                            if not path in rv["paths"]:
+                                rv["paths"][path] = {}
+
+                            rv["paths"][path][norm_method] = {
+                                "summary": rule.endpoint.func.__doc__,
+                                "description": rule.endpoint.func.__doc__,
+                                "responses": {
+                                    "200": {
+                                        "description": "Successful operation",
+                                        "content": {
+                                            "application/json": {
+                                                "schema": {"$ref": request_response}
+                                            },
+                                        },
+                                    },
+                                    "400": {"description": "Invalid ID supplied"},
+                                    "404": {"description": "Pet not found"},
+                                    "405": {"description": "Validation exception"},
+                                },
+                            }
+                            if norm_method != "get":
+                                rv["paths"][path][norm_method].update(
+                                    {
+                                        "parameters": [
+                                            {
+                                                "in": "header",
+                                                "name": "Csrf-Token",
+                                                "schema": {
+                                                    "type": "string",
+                                                    "default": csrf_token,
+                                                },
+                                            }
+                                        ],
+                                        "requestBody": {
+                                            "description": "",
+                                            "content": {
+                                                "application/json": {
+                                                    "schema": {"$ref": request_body}
+                                                },
+                                            },
+                                            "required": True,
+                                        },
+                                    }
+                                )
+
+        return json.dumps(rv)
+        json.dumps(
             {
                 "openapi": "3.0.3",
                 "info": {
@@ -939,9 +1011,9 @@ class OpenApi(models.Model):
                                 }
                             },
                         },
-                        "api_key": {
+                        "csrf_token": {
                             "type": "apiKey",
-                            "name": "api_key",
+                            "name": "csrf_token",
                             "in": "header",
                         },
                     },
