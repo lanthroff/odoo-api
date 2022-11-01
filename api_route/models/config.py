@@ -5,7 +5,7 @@
 from odoo import fields, models
 
 
-class ReactConfig(models.TransientModel):
+class ApiRouteConfig(models.TransientModel):
     _inherit = "res.config.settings"
 
     service = fields.Char(string="Service name")

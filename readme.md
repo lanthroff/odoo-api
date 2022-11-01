@@ -1,12 +1,27 @@
-# Getting Started with odoo-api
+## Motivation
 
-The Goal is to serve the website with a mordern Js framework as root url, and keep odoo
-backoffice available.
+The goal is to interface odoo with any frontend through a JSON restapi without altering auth system.
+With odoo routes as they are you have two choices:
 
-This config give access to backoffice at odoo.localhost (you have to add it in your host file).
-The api calls will be done with a prefix /odoo which will be rewritten by nginx
+- http: you will have to send your request as an application/x-www-form-urlencoded
+but you will be able to send json as response thanks to json.dumps()
+- json: you will have the ability to receive directly json and respond as json too,
+but as the route is not http anymore, in case of error you won't be able to have basic
+http error responses.
 
-TODO: Find a cleaner way to use odoo not as root url 
+The simplest option was to add an other dispatcher to odoo, that we called "api"
+
+## Features
+
+- JSON request and JSON/HTTP error as response
+- pydantic models possible for request and response bodies
+- openapi documentation over the "api" route with pydantic models annotations
+  
+## Getting Started
+
+## Contributors
+
+
 
 ## Nginx settings
 

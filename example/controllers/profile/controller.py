@@ -4,12 +4,12 @@
 
 from odoo import http
 
-from ..schemas.myobject import MyObject, MyObjectResponse
+from .schema import ProfileResponse
 
 
-class Example(http.Controller):
+class ApiProfileController(http.Controller):
     @http.route("/profile", type="api", auth="user", methods=["GET", "POST"])
-    def profile(self, **kw):
+    def profile(self, **kw) -> ProfileResponse:
         owned_cars = http.request.env["example.cars"].search(
             [("owner", "=", http.request.session.uid)]
         )
@@ -20,9 +20,3 @@ class Example(http.Controller):
             },
             "cars": [el.name for el in owned_cars],
         }
-
-    @http.route("/api", type="api", auth="public", methods=["GET", "POST"])
-    def api(self, data: MyObject = None, **kw) -> MyObjectResponse:
-        """TEST DOCSTRING"""
-        print(data.pretty(h="H", v="V"))
-        return MyObjectResponse(id=http.request.session.uid)

@@ -2,49 +2,10 @@
 
 # Copyright © Educacode.
 
-import json
 import typing
 
-import odoo
 from odoo import api, http, models
-from pydantic import BaseModel, Extra
 from pydantic.schema import schema
-
-
-class ApiModel(BaseModel):
-    def __str__(self):
-        return f"{self.__class__.__name__}({', '.join([ f'{key}={self.__dict__.get(key)}' for key in self.__dict__])})"
-
-    def pretty(self, h="*", v="|"):
-        """
-        Do not disturb
-        """
-        h = h[0] if len(h) > 1 else h
-        v = v[0] if len(v) > 1 else v
-        width = max(
-            [len(self.__class__.__name__) + 12]
-            + [len(f"{key}: {getattr(self, key)}") + 4 for key in self.__dict__]
-        )
-        if (width - len(self.__class__.__name__)) % 2:
-            width += 1
-
-        header = (
-            f"{h * (((width - len(self.__class__.__name__)) // 2) - 1 ) } {self.__class__.__name__} {h * (((width - len(self.__class__.__name__)) // 2) - 1 ) }"
-            + "\n"
-            + f"{v}{' ' * (width - 2)}{v}"
-            + "\n"
-        )
-        footer = f"{v}{' ' * (width - 2)}{v}" + "\n" + h * width + "\n"
-        result = "\n"
-        result += header
-        for key in self.__dict__:
-            data = f"{key}: {getattr(self, key)}"
-            result += f"{v} {data}{' ' * (width - len(data) - 3)}{v}" + "\n"
-        result += footer
-        return result
-
-    class Config:
-        extra = Extra.forbid
 
 
 class OpenApi(models.Model):
@@ -54,20 +15,28 @@ class OpenApi(models.Model):
     )
 
     @api.model
-    def get_json(self: models.Model) -> typing.List[typing.Dict[str, str]]:
+    def docstring_dict(self, doc: str) -> typing.Dict[str, str]:
+        rv = {}
+        lines = doc.split("\n")
+        for line in lines:
+            if "@summary:" in line:
+                rv.update({"summary": line.replace("@summary:", "").strip()})
+            if "@description:" in line:
+                rv.update({"description": line.replace("@description:", "").strip()})
+            if "@tag:" in line:
+                rv.update({"tag": line.replace("@tag:", "").strip()})
+
+        return rv
+
+    @api.model
+    def get_json(
+        self: models.Model, current_host: str
+    ) -> typing.List[typing.Dict[str, str]]:
         router = http.root.get_db_router(http.request.db)
 
         Params = self.env["ir.config_parameter"].sudo()
 
-        current_host = Params.get_param("web.base.url")
-        # current_host = (
-        #     f"{current_host}:{odoo.tools.config.options.get('http_port')}"
-        #     if "http://localhost" in current_host
-        #     else current_host
-        # )
-
         service_name = Params.get_param("api_route.service")
-
         rv = {
             "openapi": "3.0.3",
             "info": {
@@ -109,7 +78,7 @@ class OpenApi(models.Model):
                         # Convert the schema to openapi dict
                         current_schema = schema(
                             [rule.endpoint.func.__annotations__[key]],
-                            ref_prefix="#components/schema/",
+                            ref_prefix="#/components/schemas/",
                         )
                         for obj in current_schema["definitions"]:
                             rv["components"]["schemas"][obj] = current_schema[
@@ -127,9 +96,20 @@ class OpenApi(models.Model):
                             if not path in rv["paths"]:
                                 rv["paths"][path] = {}
 
+                            docstring = (
+                                rule.endpoint.func.__doc__
+                                if rule.endpoint.func.__doc__
+                                else "No Docstring"
+                            )
+                            docdict = self.docstring_dict(docstring)
+
                             rv["paths"][path][norm_method] = {
-                                "summary": rule.endpoint.func.__doc__,
-                                "description": rule.endpoint.func.__doc__,
+                                "summary": docdict["summary"]
+                                if "summary" in docdict
+                                else docstring,
+                                "description": docdict["description"]
+                                if "description" in docdict
+                                else docstring,
                                 "responses": {
                                     "200": {
                                         "description": "Successful operation",
@@ -139,11 +119,12 @@ class OpenApi(models.Model):
                                             },
                                         },
                                     },
-                                    "400": {"description": "Invalid ID supplied"},
-                                    "404": {"description": "Pet not found"},
-                                    "405": {"description": "Validation exception"},
                                 },
                             }
+                            if "tag" in docdict:
+                                rv["paths"][path][norm_method].update(
+                                    {"tags": [docdict["tag"]]}
+                                )
                             if norm_method != "get":
                                 rv["paths"][path][norm_method].update(
                                     {
@@ -169,4 +150,4 @@ class OpenApi(models.Model):
                                     }
                                 )
 
-        return json.dumps(rv)
+        return rv

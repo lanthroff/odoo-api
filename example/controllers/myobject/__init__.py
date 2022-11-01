@@ -2,4 +2,4 @@
 
 # Copyright © Educacode.
 
-from . import login, myobject, ping, profile
+from . import controller

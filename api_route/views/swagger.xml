@@ -14,7 +14,22 @@
                 <div id="swagger-ui"></div>
                 <script src="/api_route/static/swagger/swagger-ui-bundle.js" charset="UTF-8"></script>
                 <script src="/api_route/static/swagger/swagger-ui-standalone-preset.js" charset="UTF-8"></script>
-                <script src="/api_route/static/swagger/swagger-initializer.js" charset="UTF-8"></script>
+                <script type="text/javascript">
+                window.onload = function () {
+                    window.ui = SwaggerUIBundle({
+                        url: `<t t-out="request.httprequest.url.replace('documentation', 'docs')" />`,
+                        dom_id: "#swagger-ui",
+                        deepLinking: true,
+                        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+                        plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+                        layout: "StandaloneLayout",
+                        sorter: "alpha",
+                        jsonEditor: true,
+                        defaultModelRendering: "schema",
+                        showRequestHeaders: true,
+                    });
+                };
+                </script>
             </body>
         </html>
     </template>
