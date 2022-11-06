@@ -12,8 +12,9 @@
     "author": "Educacode",
     "website": "https://www.educacode.com",
     "category": "Website",
-    "version": "0.1",
+    "version": "1.0",
     "depends": ["base"],
+    "external_dependancies": {"python": ["pydantic"]},
     "data": [
         "security/ir.model.access.csv",
         "views/config.xml",

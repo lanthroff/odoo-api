@@ -3,14 +3,14 @@
     <!-- explicit list view definition -->
 
     <record model="ir.ui.view" id="example.car_tree">
-      <field name="name">Car list</field>
-      <field name="model">example.cars</field>
+      <field name="name">Todo list</field>
+      <field name="model">example.todo</field>
       <field name="arch" type="xml">
         <tree>
-          <field name="owner"/>
-          <field name="brand"/>
-          <field name="model"/>
-          <field name="number"/>
+          <field name="name"/>
+          <field name="content"/>
+          <field name="write_date"/>
+          <field name="create_uid"/>
         </tree>
       </field>
     </record>
@@ -18,9 +18,9 @@
 
     <!-- actions opening views on models -->
 
-    <record model="ir.actions.act_window" id="example.car_action_window">
-      <field name="name">Cars</field>
-      <field name="res_model">example.cars</field>
+    <record model="ir.actions.act_window" id="example.todo_action_window">
+      <field name="name">Todo</field>
+      <field name="res_model">example.todo</field>
       <field name="view_mode">tree,form</field>
     </record>
 
@@ -29,6 +29,6 @@
     <menuitem name="Example" id="example.menu_root"/>
 
     <!-- menu categories -->
-    <menuitem name="Cars" id="example.menu_car" parent="example.menu_root" action="example.car_action_window"/>
+    <menuitem name="Cars" id="example.menu_todo" parent="example.menu_root" action="example.todo_action_window"/>
   </data>
 </odoo>

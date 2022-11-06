@@ -1,2 +1,2 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_example_cars,example.cars,model_example_cars,base.group_user,1,1,1,1
+access_example_todo,example.todo,model_example_todo,base.group_user,1,1,1,1

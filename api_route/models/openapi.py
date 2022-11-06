@@ -93,7 +93,7 @@ class OpenApi(models.Model):
                     for method in rule.endpoint.routing.get("methods"):
                         norm_method = method.lower()
                         if request_response and (request_body or norm_method == "get"):
-                            if not path in rv["paths"]:
+                            if path not in rv["paths"]:
                                 rv["paths"][path] = {}
 
                             docstring = (
@@ -104,12 +104,8 @@ class OpenApi(models.Model):
                             docdict = self.docstring_dict(docstring)
 
                             rv["paths"][path][norm_method] = {
-                                "summary": docdict["summary"]
-                                if "summary" in docdict
-                                else docstring,
-                                "description": docdict["description"]
-                                if "description" in docdict
-                                else docstring,
+                                "summary": docdict.get("summary"),
+                                "description": docdict.get("description"),
                                 "responses": {
                                     "200": {
                                         "description": "Successful operation",

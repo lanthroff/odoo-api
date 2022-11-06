@@ -2,13 +2,12 @@
 
 # Copyright © Educacode.
 
-from email.policy import HTTP
-
 from werkzeug.exceptions import (
     BadRequest,
     Forbidden,
     InternalServerError,
     MethodNotAllowed,
+    NotFound,
     Unauthorized,
     UnprocessableEntity,
 )
@@ -44,6 +43,6 @@ class ApiUnprocessableEntity(UnprocessableEntity):
         return self.description
 
 
-# TODO
-# RECONCILIER AVEC AXIOS
-# PASSER EN HISTORYROUTER
+class ApiNotFound(NotFound):
+    def get_body(self, environ=None):
+        return self.description

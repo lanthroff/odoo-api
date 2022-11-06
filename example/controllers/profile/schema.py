@@ -14,4 +14,3 @@ class ApiUserModel(ApiModel):
 
 class ProfileResponse(ApiModel):
     user: ApiUserModel
-    cars: List[str]

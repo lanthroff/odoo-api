@@ -4,24 +4,28 @@
 
 import logging
 
-from odoo import http
-from odoo.exceptions import AccessError
-from odoo.http import CSRF_FREE_METHODS, Dispatcher, Response, SessionExpiredException
 from pydantic import BaseModel, ValidationError
 from werkzeug.exceptions import (
     BadRequest,
     Forbidden,
     InternalServerError,
     MethodNotAllowed,
+    NotFound,
     Unauthorized,
     UnprocessableEntity,
 )
+
+from odoo import http
+from odoo.exceptions import AccessError
+from odoo.http import CSRF_FREE_METHODS, Dispatcher, SessionExpiredException
+from odoo.models import BaseModel as OdooBaseModel
 
 from .exceptions import (
     ApiBadRequest,
     ApiForbidden,
     ApiInternalServerError,
     ApiMethodNotAllowed,
+    ApiNotFound,
     ApiUnauthorized,
     ApiUnprocessableEntity,
 )
@@ -37,69 +41,160 @@ class ApiDispatcher(Dispatcher):
         self.jsonrequest = {}
         self.body = None
 
+    def pre_dispatch(self, rule, args):
+        for key in args:
+            if (
+                issubclass(type(args[key]), OdooBaseModel)
+                and args[key].ids != args[key].exists().ids
+            ):
+                raise NotFound(f"The {key} with id {args[key].id} was not found")
+        return super().pre_dispatch(rule, args)
+
+    # TODO DRY
+    def switch(self, method, endpoint, args):
+        return getattr(self, f"case_{method}", self.case_default)(
+            method, endpoint, args
+        )
+
+    def case_get(self, method, endpoint, args):
+        self.request.params = dict(self.request.get_http_params(), **args)
+        result = endpoint(**self.request.params)
+        return result
+
+    def case_post(self, method, endpoint, args):
+        try:
+            self.jsonrequest = self.request.get_json_data()
+        except ValueError as _:
+            raise UnprocessableEntity("Invalid Json")
+
+        # Unmarshal provided JSON into the designated Object(BaseModel)
+        body = self.unmarshal(endpoint)
+
+        if issubclass(type(body), BaseModel):
+            result = endpoint(body, **args)
+        else:
+            result = endpoint(**dict(self.jsonrequest, **args))
+        return result
+
+    def case_patch(self, method, endpoint, args):
+        try:
+            self.jsonrequest = self.request.get_json_data()
+        except ValueError as _:
+            raise UnprocessableEntity("Invalid Json")
+
+        # Unmarshal provided JSON into the designated Object(BaseModel)
+        body = self.unmarshal(endpoint)
+        if issubclass(type(body), BaseModel):
+            result = endpoint(body, **args)
+        else:
+            result = endpoint(**dict(self.jsonrequest, **args))
+        return result
+
+    def case_put(self, method, endpoint, args):
+        try:
+            self.jsonrequest = self.request.get_json_data()
+        except ValueError as _:
+            raise UnprocessableEntity("Invalid Json")
+
+        # Unmarshal provided JSON into the designated Object(BaseModel)
+        body = self.unmarshal(endpoint)
+        if issubclass(type(body), BaseModel):
+            result = endpoint(body, **args)
+        else:
+            result = endpoint(**dict(self.jsonrequest, **args))
+        return result
+
+    def case_delete(self, method, endpoint, args):
+        self.request.params = dict(self.request.get_http_params(), **args)
+        result = endpoint(**self.request.params)
+        return result
+
+    def case_default(self, method, endpoint, args):
+        _logger.error(f"Dispatcher error unknown method: {method}")
+        raise InternalServerError("Unkown Method")
+
     @classmethod
     def is_compatible_with(cls, request):
         return True
 
     def dispatch(self, endpoint, args):
+        # import inspect
+
+        # print(args)
+        # print(inspect.signature(endpoint.func))
+
         if self.request.httprequest.method not in CSRF_FREE_METHODS:
 
             # Check CSRF token presence
             token = self.request.httprequest.headers.get("Csrf-Token")
             if endpoint.routing.get("csrf", True) and not token:
-                return ApiForbidden("Missing CSRF token").get_response()
+                raise Forbidden("Missing CSRF token")
 
             # Check CSRF is valid
             if token and not self.request.validate_csrf(token):
-                return ApiBadRequest().get_response()
+                raise BadRequest("Invalid CSRF token")
 
-            # Check JSON is valid
-            try:
-                self.jsonrequest = self.request.get_json_data()
-            except ValueError as exc:
-                return ApiUnprocessableEntity("Invalid Json").get_response()
+        result = self.switch(self.request.httprequest.method.lower(), endpoint, args)
 
-            # Unmarshal provided JSON into the designated Object(BaseModel)
-            self.body = self.unmarshal(endpoint)
+        # if self.request.httprequest.method not in CSRF_FREE_METHODS:
+        #     # BEGIN REFACTOR SECTION
+        #     # Check JSON is valid
+        #     try:
+        #         self.jsonrequest = self.request.get_json_data()
+        #     except ValueError as _:
+        #         raise UnprocessableEntity("Invalid Json")
 
-        self.request.params = dict(self.jsonrequest, **args)
+        #     # Unmarshal provided JSON into the designated Object(BaseModel)
+        #     self.body = self.unmarshal(endpoint)
 
-        ctx = self.request.params.pop("context", None)
-        if ctx is not None and self.request.db:
-            self.request.update_env(context=ctx)
+        # self.request.params = dict(self.jsonrequest, **args)
 
-        if self.request.db:
-            result = self._dispatch(endpoint)
-        else:
-            result = endpoint(**self.request.params)
+        # ctx = self.request.params.pop("context", None)
+        # if ctx is not None and self.request.db:
+        #     self.request.update_env(context=ctx)
 
-        # TODO find a better way to separate dict and basemodel
-        if not isinstance(result, dict):
+        # if self.request.db:
+        #     result = self._dispatch(endpoint)
+        # else:
+        #     result = endpoint(**self.request.params)
+
+        # if isinstance(result, Response):
+        #     print("NEVER TRUE")
+        #     result.flatten()
+
+        if issubclass(type(result), BaseModel):
             result = result.dict()
 
         return self.request.make_json_response(result)
 
     def handle_error(self, exc):
+        """
+        Handle any error that occured during dispatch
+        """
         if isinstance(exc, BadRequest):
-            return ApiBadRequest(exc.description).get_response()
+            response = ApiBadRequest(exc.description)
         elif isinstance(exc, SessionExpiredException):
             session = self.request.session
             session.logout(keep_db=True)
-            return ApiUnauthorized("Session Expired").get_response()
+            response = ApiUnauthorized("Session Expired")
         elif isinstance(exc, AccessError):
-            return InternalServerError(exc.args[0])
+            response = InternalServerError(exc.args[0])
         elif isinstance(exc, Unauthorized):
-            return ApiUnauthorized(exc.description).get_response()
+            response = ApiUnauthorized(exc.description)
         elif isinstance(exc, Forbidden):
-            return ApiForbidden(exc.description).get_response()
+            response = ApiForbidden(exc.description)
         elif isinstance(exc, MethodNotAllowed):
-            return ApiMethodNotAllowed(exc.description).get_response()
+            response = ApiMethodNotAllowed(exc.description)
         elif isinstance(exc, UnprocessableEntity):
-            return ApiUnprocessableEntity(exc.description).get_response()
+            response = ApiUnprocessableEntity(exc.description)
+        elif isinstance(exc, NotFound):
+            response = ApiNotFound(exc.description)
         elif isinstance(exc, InternalServerError):
-            return ApiInternalServerError().get_response()
+            response = ApiInternalServerError()
         else:
-            return ApiInternalServerError(str(exc)).get_response()
+            response = ApiInternalServerError(str(exc))
+
+        return response.get_response()
 
     def unmarshal(self, endpoint):
         annotations = list(
@@ -119,15 +214,15 @@ class ApiDispatcher(Dispatcher):
                 if argument
                 else None
             )
-        except ValidationError as e:
-            _logger.error(e)
-            raise ApiUnprocessableEntity(str(e))
+        except ValidationError as err:
+            _logger.error(err)
+            raise ApiUnprocessableEntity(str(err))
 
-    def _dispatch(self, endpoint):
-        if self.body:
-            result = endpoint(self.body)
-        else:
-            result = endpoint(**http.request.params)
-        if isinstance(result, Response):
-            result.flatten()
-        return result
+    # def _dispatch(self, endpoint):
+    #     if self.body:
+    #         result = endpoint(self.body)
+    #     else:
+    #         result = endpoint(**http.request.params)
+    #     if isinstance(result, Response):
+    #         result.flatten()
+    #     return result
