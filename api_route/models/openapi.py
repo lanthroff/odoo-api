@@ -4,8 +4,9 @@
 
 import typing
 
-from odoo import api, http, models
 from pydantic.schema import schema
+
+from odoo import api, http, models
 
 
 class OpenApi(models.Model):
@@ -71,10 +72,10 @@ class OpenApi(models.Model):
                 request_response = None
 
                 # Iterate over all the annotations in the route definition
+
                 for key in rule.endpoint.func.__annotations__:
                     # If the annotation is of type object then we get the details
                     if hasattr(rule.endpoint.func.__annotations__[key], "__fields__"):
-
                         # Convert the schema to openapi dict
                         current_schema = schema(
                             [rule.endpoint.func.__annotations__[key]],
@@ -92,58 +93,110 @@ class OpenApi(models.Model):
                 for path in rule.endpoint.routing.get("routes"):
                     for method in rule.endpoint.routing.get("methods"):
                         norm_method = method.lower()
-                        if request_response and (request_body or norm_method == "get"):
-                            if path not in rv["paths"]:
-                                rv["paths"][path] = {}
+                        path, path_parameters = self.extract_model(path, [])
+                        if path not in rv["paths"]:
+                            rv["paths"][path] = {}
 
-                            docstring = (
-                                rule.endpoint.func.__doc__
-                                if rule.endpoint.func.__doc__
-                                else "No Docstring"
+                        docstring = (
+                            rule.endpoint.func.__doc__
+                            if rule.endpoint.func.__doc__
+                            else "No Docstring"
+                        )
+                        docdict = self.docstring_dict(docstring)
+
+                        rv["paths"][path][norm_method] = {
+                            "summary": docdict.get("summary"),
+                            "description": docdict.get("description"),
+                        }
+
+                        if norm_method != "get":
+                            rv["paths"][path][norm_method].update(
+                                {
+                                    "parameters": [
+                                        {
+                                            "in": "header",
+                                            "name": "Csrf-Token",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": csrf_token,
+                                            },
+                                        },
+                                    ],
+                                }
                             )
-                            docdict = self.docstring_dict(docstring)
-
-                            rv["paths"][path][norm_method] = {
-                                "summary": docdict.get("summary"),
-                                "description": docdict.get("description"),
-                                "responses": {
-                                    "200": {
-                                        "description": "Successful operation",
+                        if request_body:
+                            rv["paths"][path][norm_method].update(
+                                {
+                                    "parameters": [
+                                        {
+                                            "in": "header",
+                                            "name": "Csrf-Token",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": csrf_token,
+                                            },
+                                        },
+                                    ],
+                                    "requestBody": {
+                                        "description": "",
                                         "content": {
                                             "application/json": {
-                                                "schema": {"$ref": request_response}
+                                                "schema": {"$ref": request_body}
+                                            },
+                                        },
+                                        "required": True,
+                                    },
+                                }
+                            )
+                        if request_response:
+                            rv["paths"][path][norm_method].update(
+                                {
+                                    "responses": {
+                                        "200": {
+                                            "description": "Successful operation",
+                                            "content": {
+                                                "application/json": {
+                                                    "schema": {"$ref": request_response}
+                                                },
                                             },
                                         },
                                     },
-                                },
+                                }
+                            )
+
+                        if not "parameters" in rv["paths"][path][norm_method]:
+                            rv["paths"][path][norm_method]["parameters"] = []
+                        rv["paths"][path][norm_method]["parameters"] += [
+                            {
+                                "in": "path",
+                                "name": parameter.get("name"),
+                                "schema": {"type": "integer"},
+                                "required": True,
+                                "description": f"Object id of model: {parameter.get('model')}",
                             }
-                            if "tag" in docdict:
-                                rv["paths"][path][norm_method].update(
-                                    {"tags": [docdict["tag"]]}
-                                )
-                            if norm_method != "get":
-                                rv["paths"][path][norm_method].update(
-                                    {
-                                        "parameters": [
-                                            {
-                                                "in": "header",
-                                                "name": "Csrf-Token",
-                                                "schema": {
-                                                    "type": "string",
-                                                    "default": csrf_token,
-                                                },
-                                            },
-                                        ],
-                                        "requestBody": {
-                                            "description": "",
-                                            "content": {
-                                                "application/json": {
-                                                    "schema": {"$ref": request_body}
-                                                },
-                                            },
-                                            "required": True,
-                                        },
-                                    }
-                                )
+                            for parameter in path_parameters
+                        ]
+                        if "tag" in docdict:
+                            rv["paths"][path][norm_method].update(
+                                {"tags": [docdict["tag"]]}
+                            )
 
         return rv
+
+    def extract_model(self, path, parameters=[]):
+        print("Parameters", parameters)
+        if "<" in path and ">" in path:
+            print("Parameters", len(parameters), parameters)
+            to_extract = path[path.find("<") + 1 : path.find(">")]
+            model = to_extract.split(":")[0]
+            variable = to_extract.split(":")[1]
+            parameters.append(
+                {
+                    "name": variable,
+                    "model": model.replace("model(", "").replace(")", ""),
+                }
+            )
+            path = path.replace(f"<{to_extract}>", f"{{{variable}}}")
+            if "<" in path and ">" in path:
+                return self.extract_model(path, parameters)
+        return path, parameters

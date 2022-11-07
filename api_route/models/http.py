@@ -42,6 +42,17 @@ class ApiDispatcher(Dispatcher):
         self.body = None
 
     def pre_dispatch(self, rule, args):
+        """
+        Add a check to the path args and raise 404 if the ressource
+        doesn't exist
+        """
+        # Maybe choose this version with no error raise instead
+        # args = {
+        #     key: args[key].exists()
+        #     if issubclass(type(args[key]), OdooBaseModel)
+        #     else args[key]
+        #     for key in args
+        # }
         for key in args:
             if (
                 issubclass(type(args[key]), OdooBaseModel)

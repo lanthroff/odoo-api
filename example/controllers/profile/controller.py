@@ -13,9 +13,9 @@ class ApiProfileController(http.Controller):
         todo_ids = http.request.env["example.todo"].search(
             [("create_uid", "=", http.request.session.uid)]
         )
-        return {
-            "user": {
+        return ProfileResponse(
+            user={
                 "id": http.request.env.user.id,
                 "name": http.request.env.user.name,
             },
-        }
+        )

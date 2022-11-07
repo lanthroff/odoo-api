@@ -13,6 +13,11 @@ from .schema import Todo, TodoCreate, TodoListResponse, TodoPatch
 class ApiProfileController(http.Controller):
     @http.route("/todo", type="api", auth="user", methods=["GET"])
     def todo_list(self, **kw) -> TodoListResponse:
+        """
+        @tag:         Todo
+        @summary:     Todo List
+        @description: Get the full list of the user's todos
+        """
         todo_ids = http.request.env["example.todo"].search(
             [("create_uid", "=", http.request.session.uid)]
         )
@@ -32,6 +37,11 @@ class ApiProfileController(http.Controller):
 
     @http.route("/put_todo", type="api", auth="user", methods=["PUT"])
     def todo_put(self, todo: TodoCreate) -> TodoListResponse:
+        """
+        @tag:         Todo
+        @summary:     Create Todo
+        @description: Create a new todo
+        """
         http.request.env["example.todo"].create(todo.dict())
 
         todo_ids = http.request.env["example.todo"].search(
@@ -56,6 +66,11 @@ class ApiProfileController(http.Controller):
         methods=["DELETE"],
     )
     def todo_delete(self, item):
+        """
+        @tag:         Todo
+        @summary:     Delete Todo
+        @description: Delete the specified todo
+        """
         if item.create_uid.id == http.request.session.uid:
             item.unlink()
         return {"success": True}
@@ -69,6 +84,11 @@ class ApiProfileController(http.Controller):
     def todo_patch(
         self, todo: TodoPatch = None, item: OdooBaseModel = None, **kw
     ) -> Todo:
+        """
+        @tag:         Todo
+        @summary:     Update Todo
+        @description: Update the todo with the provided body
+        """
         item.update(todo.dict())
         return Todo(
             id=item.id,
