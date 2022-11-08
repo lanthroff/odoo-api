@@ -34,6 +34,11 @@ _logger = logging.getLogger(__name__)
 
 
 class ApiDispatcher(Dispatcher):
+    """
+    Additionnal Dispatcher, any controller can use it by
+    specifying type='api'
+    """
+
     routing_type = "api"
 
     def __init__(self, request):
@@ -44,15 +49,8 @@ class ApiDispatcher(Dispatcher):
     def pre_dispatch(self, rule, args):
         """
         Add a check to the path args and raise 404 if the ressource
-        doesn't exist
+        doesn't exist.
         """
-        # Maybe choose this version with no error raise instead
-        # args = {
-        #     key: args[key].exists()
-        #     if issubclass(type(args[key]), OdooBaseModel)
-        #     else args[key]
-        #     for key in args
-        # }
         for key in args:
             if (
                 issubclass(type(args[key]), OdooBaseModel)
@@ -61,79 +59,86 @@ class ApiDispatcher(Dispatcher):
                 raise NotFound(f"The {key} with id {args[key].id} was not found")
         return super().pre_dispatch(rule, args)
 
-    # TODO DRY
     def switch(self, method, endpoint, args):
-        return getattr(self, f"case_{method}", self.case_default)(
-            method, endpoint, args
-        )
+        """
+        Simple Implementation of a switch case in python
+        """
+        return getattr(self, f"case_{method}", self.case_default)(endpoint, args)
 
-    def case_get(self, method, endpoint, args):
+    def case_get(self, endpoint, args):
+        """
+        Case Method GET
+        """
         self.request.params = dict(self.request.get_http_params(), **args)
-        result = endpoint(**self.request.params)
-        return result
+        return endpoint(**self.request.params)
 
-    def case_post(self, method, endpoint, args):
-        try:
-            self.jsonrequest = self.request.get_json_data()
-        except ValueError as _:
-            raise UnprocessableEntity("Invalid Json")
+    def case_post(self, endpoint, args):
+        """
+        Case Method POST
+        """
+        return self.json_body_method(endpoint, args)
 
-        # Unmarshal provided JSON into the designated Object(BaseModel)
-        body = self.unmarshal(endpoint)
+    def case_patch(self, endpoint, args):
+        """
+        Case Method PATCH
+        """
+        return self.json_body_method(endpoint, args)
 
-        if issubclass(type(body), BaseModel):
-            result = endpoint(body, **args)
-        else:
-            result = endpoint(**dict(self.jsonrequest, **args))
-        return result
+    def case_put(self, endpoint, args):
+        """
+        Case Method PUT
+        """
+        return self.json_body_method(endpoint, args)
 
-    def case_patch(self, method, endpoint, args):
-        try:
-            self.jsonrequest = self.request.get_json_data()
-        except ValueError as _:
-            raise UnprocessableEntity("Invalid Json")
-
-        # Unmarshal provided JSON into the designated Object(BaseModel)
-        body = self.unmarshal(endpoint)
-        if issubclass(type(body), BaseModel):
-            result = endpoint(body, **args)
-        else:
-            result = endpoint(**dict(self.jsonrequest, **args))
-        return result
-
-    def case_put(self, method, endpoint, args):
-        try:
-            self.jsonrequest = self.request.get_json_data()
-        except ValueError as _:
-            raise UnprocessableEntity("Invalid Json")
-
-        # Unmarshal provided JSON into the designated Object(BaseModel)
-        body = self.unmarshal(endpoint)
-        if issubclass(type(body), BaseModel):
-            result = endpoint(body, **args)
-        else:
-            result = endpoint(**dict(self.jsonrequest, **args))
-        return result
-
-    def case_delete(self, method, endpoint, args):
+    def case_delete(self, endpoint, args):
+        """
+        Case Method DELETE
+        """
         self.request.params = dict(self.request.get_http_params(), **args)
-        result = endpoint(**self.request.params)
-        return result
+        return endpoint(**self.request.params)
 
     def case_default(self, method, endpoint, args):
-        _logger.error(f"Dispatcher error unknown method: {method}")
+        """
+        Case Default, Method Unknown
+        """
+        _logger.error(
+            f"Dispatcher {endpoint} error unknown method: {method} with args: {args}",
+        )
         raise InternalServerError("Unkown Method")
 
+    def json_body_method(self, endpoint, args):
+        """
+        Helper function to process every request method
+        which has a json body (POST, PATCH, PUT)
+        """
+        try:
+            self.jsonrequest = self.request.get_json_data()
+        except ValueError as err:
+            raise UnprocessableEntity("Invalid Json") from err
+
+        # Unmarshal provided JSON into the designated Object(BaseModel)
+        body = self.unmarshal(endpoint)
+
+        if issubclass(type(body), BaseModel):
+            result = endpoint(body, **args)
+        else:
+            result = endpoint(**dict(self.jsonrequest, **args))
+        return result
+
     @classmethod
-    def is_compatible_with(cls, request):
+    def is_compatible_with(cls, _):
+        """
+        Determine if the current request is compatible with this
+        dispatcher.
+        """
         return True
 
     def dispatch(self, endpoint, args):
-        # import inspect
-
-        # print(args)
-        # print(inspect.signature(endpoint.func))
-
+        """
+        Perform http-related actions such as deserializing the request
+        body and query-string and checking cors/csrf while dispatching a
+        request to a type='api' route.
+        """
         if self.request.httprequest.method not in CSRF_FREE_METHODS:
 
             # Check CSRF token presence
@@ -147,30 +152,7 @@ class ApiDispatcher(Dispatcher):
 
         result = self.switch(self.request.httprequest.method.lower(), endpoint, args)
 
-        # if self.request.httprequest.method not in CSRF_FREE_METHODS:
-        #     # BEGIN REFACTOR SECTION
-        #     # Check JSON is valid
-        #     try:
-        #         self.jsonrequest = self.request.get_json_data()
-        #     except ValueError as _:
-        #         raise UnprocessableEntity("Invalid Json")
-
-        #     # Unmarshal provided JSON into the designated Object(BaseModel)
-        #     self.body = self.unmarshal(endpoint)
-
-        # self.request.params = dict(self.jsonrequest, **args)
-
-        # ctx = self.request.params.pop("context", None)
-        # if ctx is not None and self.request.db:
-        #     self.request.update_env(context=ctx)
-
-        # if self.request.db:
-        #     result = self._dispatch(endpoint)
-        # else:
-        #     result = endpoint(**self.request.params)
-
         # if isinstance(result, Response):
-        #     print("NEVER TRUE")
         #     result.flatten()
 
         if issubclass(type(result), BaseModel):
@@ -208,6 +190,10 @@ class ApiDispatcher(Dispatcher):
         return response.get_response()
 
     def unmarshal(self, endpoint):
+        """
+        Transform JSON body into a Pydantic (or Pydantic subclass)
+        BaseModel instance
+        """
         annotations = list(
             filter(
                 lambda key: issubclass(
@@ -227,13 +213,4 @@ class ApiDispatcher(Dispatcher):
             )
         except ValidationError as err:
             _logger.error(err)
-            raise ApiUnprocessableEntity(str(err))
-
-    # def _dispatch(self, endpoint):
-    #     if self.body:
-    #         result = endpoint(self.body)
-    #     else:
-    #         result = endpoint(**http.request.params)
-    #     if isinstance(result, Response):
-    #         result.flatten()
-    #     return result
+            raise ApiUnprocessableEntity(str(err)) from err
