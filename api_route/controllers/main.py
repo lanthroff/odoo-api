@@ -25,6 +25,4 @@ class ApiRouteController(http.Controller):
         ):
             return Unauthorized("You don't have permission to see the documentation")
 
-        return http.request.env["api_route.open_api"].get_json(
-            http.request.httprequest.url.replace("/docs", "")
-        )
+        return http.request.env["api_route.open_api"].get_json()

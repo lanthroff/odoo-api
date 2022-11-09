@@ -4,12 +4,16 @@
 
 import typing
 
-from pydantic.schema import schema
-
 from odoo import api, http, models
+from pydantic.schema import schema
 
 
 class OpenApi(models.Model):
+    """
+    Provide methods to create the OpenApi documentation
+    of the type="api" routes
+    """
+
     _name = "api_route.open_api"
     _description = (
         "OpenApi class containing methods to generate the openapi documentation"
@@ -17,28 +21,35 @@ class OpenApi(models.Model):
 
     @api.model
     def docstring_dict(self, doc: str) -> typing.Dict[str, str]:
-        rv = {}
+        """
+        Method to extract the @summary, @description, @tag from the docstring
+        of any type="api" route
+        """
+        result = {}
         lines = doc.split("\n")
         for line in lines:
             if "@summary:" in line:
-                rv.update({"summary": line.replace("@summary:", "").strip()})
+                result.update({"summary": line.replace("@summary:", "").strip()})
             if "@description:" in line:
-                rv.update({"description": line.replace("@description:", "").strip()})
+                result.update(
+                    {"description": line.replace("@description:", "").strip()}
+                )
             if "@tag:" in line:
-                rv.update({"tag": line.replace("@tag:", "").strip()})
+                result.update({"tag": line.replace("@tag:", "").strip()})
 
-        return rv
+        return result
 
     @api.model
-    def get_json(
-        self: models.Model, current_host: str
-    ) -> typing.List[typing.Dict[str, str]]:
+    def get_json(self: models.Model) -> typing.List[typing.Dict[str, str]]:
+        """
+        Method to return a valid OpenApi json
+        """
         router = http.root.get_db_router(http.request.db)
 
-        Params = self.env["ir.config_parameter"].sudo()
-
-        service_name = Params.get_param("api_route.service")
-        rv = {
+        service_name = (
+            self.env["ir.config_parameter"].sudo().get_param("api_route.service")
+        )
+        result = {
             "openapi": "3.0.3",
             "info": {
                 "title": service_name,
@@ -55,7 +66,6 @@ class OpenApi(models.Model):
                 "description": "Find out more about Swagger",
                 "url": "http://swagger.io",
             },
-            "servers": [{"url": current_host}],
             "paths": {},
             "components": {
                 "schemas": {},
@@ -82,7 +92,7 @@ class OpenApi(models.Model):
                             ref_prefix="#/components/schemas/",
                         )
                         for obj in current_schema["definitions"]:
-                            rv["components"]["schemas"][obj] = current_schema[
+                            result["components"]["schemas"][obj] = current_schema[
                                 "definitions"
                             ][obj]
                             if key == "return":
@@ -93,9 +103,9 @@ class OpenApi(models.Model):
                 for path in rule.endpoint.routing.get("routes"):
                     for method in rule.endpoint.routing.get("methods"):
                         norm_method = method.lower()
-                        path, path_parameters = self.extract_model(path, [])
-                        if path not in rv["paths"]:
-                            rv["paths"][path] = {}
+                        path, path_parameters = self.extract_model(path)
+                        if path not in result["paths"]:
+                            result["paths"][path] = {}
 
                         docstring = (
                             rule.endpoint.func.__doc__
@@ -104,13 +114,13 @@ class OpenApi(models.Model):
                         )
                         docdict = self.docstring_dict(docstring)
 
-                        rv["paths"][path][norm_method] = {
+                        result["paths"][path][norm_method] = {
                             "summary": docdict.get("summary"),
                             "description": docdict.get("description"),
                         }
 
                         if norm_method != "get":
-                            rv["paths"][path][norm_method].update(
+                            result["paths"][path][norm_method].update(
                                 {
                                     "parameters": [
                                         {
@@ -125,7 +135,7 @@ class OpenApi(models.Model):
                                 }
                             )
                         if request_body:
-                            rv["paths"][path][norm_method].update(
+                            result["paths"][path][norm_method].update(
                                 {
                                     "parameters": [
                                         {
@@ -149,7 +159,7 @@ class OpenApi(models.Model):
                                 }
                             )
                         if request_response:
-                            rv["paths"][path][norm_method].update(
+                            result["paths"][path][norm_method].update(
                                 {
                                     "responses": {
                                         "200": {
@@ -164,9 +174,9 @@ class OpenApi(models.Model):
                                 }
                             )
 
-                        if not "parameters" in rv["paths"][path][norm_method]:
-                            rv["paths"][path][norm_method]["parameters"] = []
-                        rv["paths"][path][norm_method]["parameters"] += [
+                        if not "parameters" in result["paths"][path][norm_method]:
+                            result["paths"][path][norm_method]["parameters"] = []
+                        result["paths"][path][norm_method]["parameters"] += [
                             {
                                 "in": "path",
                                 "name": parameter.get("name"),
@@ -177,16 +187,17 @@ class OpenApi(models.Model):
                             for parameter in path_parameters
                         ]
                         if "tag" in docdict:
-                            rv["paths"][path][norm_method].update(
+                            result["paths"][path][norm_method].update(
                                 {"tags": [docdict["tag"]]}
                             )
 
-        return rv
+        return result
 
-    def extract_model(self, path, parameters=[]):
-        print("Parameters", parameters)
+    def extract_model(self, path, parameters=None):
+        """Method to extract <model('module.model'):parameter> from the route path"""
+        if parameters is None:
+            parameters = []
         if "<" in path and ">" in path:
-            print("Parameters", len(parameters), parameters)
             to_extract = path[path.find("<") + 1 : path.find(">")]
             model = to_extract.split(":")[0]
             variable = to_extract.split(":")[1]

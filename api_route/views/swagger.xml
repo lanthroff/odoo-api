@@ -17,7 +17,7 @@
                 <script type="text/javascript">
                 window.onload = function () {
                     window.ui = SwaggerUIBundle({
-                        url: `<t t-out="request.httprequest.url.replace('documentation', 'docs')" />`,
+                        url: "/docs",
                         dom_id: "#swagger-ui",
                         deepLinking: true,
                         presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
