@@ -19,6 +19,7 @@
                   <div class="content-group">
                     <field name="service" />
                   </div>
+                  <button type="object" class="btn btn-primary mt-5" name="go_documentation" string="Voir la documentation"/>
                 </div>
               </div>
             </div>

@@ -4,7 +4,7 @@
 
 from typing import List
 
-from ....api_route.models.api_model import ApiModel
+from pydantic_educacode.model import ApiModel
 
 
 class ApiUserModel(ApiModel):

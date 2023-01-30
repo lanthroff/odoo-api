@@ -22,3 +22,10 @@ class ApiRouteConfig(models.TransientModel):
         super().set_values()
         set_param = self.env["ir.config_parameter"].sudo().set_param
         set_param("api_route.service", self.service)
+
+    def go_documentation(self):
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/documentation",
+            "target": "self",
+        }

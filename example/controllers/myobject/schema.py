@@ -2,7 +2,7 @@
 
 # Copyright © Educacode.
 
-from ....api_route.models.api_model import ApiModel
+from pydantic_educacode.model import ApiModel
 
 
 class MyObject(ApiModel):

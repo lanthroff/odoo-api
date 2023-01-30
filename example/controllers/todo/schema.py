@@ -5,8 +5,7 @@
 from typing import List, Optional
 
 from pydantic import validator
-
-from ....api_route.models.api_model import ApiModel
+from pydantic_educacode.model import ApiModel
 
 
 class Todo(ApiModel):
