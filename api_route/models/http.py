@@ -56,13 +56,15 @@ class ApiDispatcher(Dispatcher):
                 issubclass(type(args[key]), OdooBaseModel)
                 and args[key].ids != args[key].exists().ids
             ):
-                raise NotFound(f"The {key} with id {args[key].id} was not found")
+                raise NotFound(
+                    f"The {key} with id {args[key].id} was not found")
         return super().pre_dispatch(rule, args)
 
     def switch(self, method, endpoint, args):
         """
         Simple Implementation of a switch case in python
         """
+        self.request.params = {}
         return getattr(self, f"case_{method}", self.case_default)(endpoint, args)
 
     def case_get(self, endpoint, args):
@@ -150,7 +152,8 @@ class ApiDispatcher(Dispatcher):
             if token and not self.request.validate_csrf(token):
                 raise BadRequest("Invalid CSRF token")
 
-        result = self.switch(self.request.httprequest.method.lower(), endpoint, args)
+        result = self.switch(
+            self.request.httprequest.method.lower(), endpoint, args)
 
         # if isinstance(result, Response):
         #     result.flatten()
