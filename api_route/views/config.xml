@@ -3,27 +3,21 @@
   <data>
 
     <record id="res_config_settings_view_form" model="ir.ui.view">
-      <field name="name">res.config.settings.view.form.inherit.esign</field>
+      <field name="name">res.config.settings.view.form.inherit.api_route</field>
       <field name="model">res.config.settings</field>
       <field name="priority" eval="65"/>
       <field name="inherit_id" ref="base.res_config_settings_view_form"/>
       <field name="arch" type="xml">
-        <xpath expr="//div[hasclass('settings')]" position="inside">
-          <div class="app_settings_block" data-string="Events" string="Api route" data-key="api_route">
-            <h2>Api route settings</h2>
-            <div class="row mt-12 o_settings_container">
-              <div class="col-6 col-lg-6 o_setting_box">
-                <div class="o_setting_right_pane">
-                  <span class="o_form_label">Service</span>
-                  <div class="text-muted">Service name</div>
-                  <div class="content-group">
-                    <field name="service" />
-                  </div>
-                  <button type="object" class="btn btn-primary mt-5" name="go_documentation" string="Voir la documentation"/>
-                </div>
-              </div>
-            </div>
-          </div>
+        <xpath expr="//form" position="inside">
+          <app data-string="api_route" string="Api route" name="api_route">
+            <block title="Setting" id="api_route_setting">
+              <setting id="api_name" string="Api config" help="Set a name for the api/documentation">
+                <label string="Service name" for="service_name_field" class="col-lg-3 o_light_label"/>
+                <field name="service" id="service_name_field"/>
+                <button type="object" class="btn btn-primary mt-5" name="go_documentation" string="Voir la documentation"/>
+              </setting>
+            </block>
+          </app>
         </xpath>
       </field>
     </record>
@@ -34,7 +28,7 @@
       <field name="res_model">res.config.settings</field>
       <field name="view_mode">form</field>
       <field name="target">inline</field>
-      <field name="context">{'module' : 'api_route'}</field>
+      <field name="context">{'module' : 'api_route', 'bin_size': False}</field>
     </record>
   </data>
 

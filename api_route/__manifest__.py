@@ -22,8 +22,5 @@
         "views/swagger.xml",
         "data/group.xml",
     ],
-    "demo": [
-        "demo/demo.xml",
-    ],
     "license": "LGPL-3",
 }
